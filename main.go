@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 
@@ -16,9 +17,24 @@ import (
 
 func main() {
 
-	log.Println("Starting")
+	outCluster := flag.Bool("out-cluster", false, "run out cluster configuration, in cluster is default")
 
-	controller := &controller.KubeApiController{Client: CreateK8sClient()}
+	var kubeconfig *string
+	if home := homedir.HomeDir(); home != "" {
+		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+	} else {
+		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+	}
+
+	flag.Parse()
+	if *outCluster {
+		log.Printf("Runnin out-cluster mode")
+	} else {
+		log.Printf("Runnin in-cluster mode")
+	}
+
+	k8sApiClient := CreateK8sClient(outCluster, kubeconfig)
+	controller := &controller.KubeApiController{Client: k8sApiClient}
 
 	r := httprouter.New()
 
@@ -34,26 +50,38 @@ func main() {
 	}
 }
 
-func CreateK8sClient() *kubernetes.Clientset {
-	var kubeconfig *string
-	if home := homedir.HomeDir(); home != "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+func CreateK8sClient(outCluster *bool, kubeconfig *string) *kubernetes.Clientset {
+	var config rest.Config
+
+	if *outCluster {
+		config = *CreateOutClusterK8sApiConfig(kubeconfig)
 	} else {
-		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+		config = *CreateInClusterK8sApiConfig()
 	}
-	flag.Parse()
+
+	// create the clientset
+	client, err := kubernetes.NewForConfig(&config)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return client
+}
+
+func CreateInClusterK8sApiConfig() *rest.Config {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err.Error())
+	}
+	return config
+}
+
+func CreateOutClusterK8sApiConfig(kubeconfig *string) *rest.Config {
 
 	// use the current context in kubeconfig
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		panic(err.Error())
 	}
-
-	// create the clientset
-	client, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	return client
+	return config
 }

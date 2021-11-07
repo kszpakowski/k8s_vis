@@ -21,8 +21,6 @@
 
     <div id="mynetwork"></div>
 
-    <button onclick="clear">clear</button>
-
 
     <script type="text/javascript">
 
@@ -54,15 +52,19 @@
         {{/* layout: {
           hierarchical: {
             enabled: true,
-            levelSeparation: 400,
+            levelSeparation: 250,
             direction: "LR",
             sortMethod: "directed",
           }
         }, */}}
       };
       const network = new vis.Network(container, data, options);
-      
-      fetch('/nodes')
+
+      const queryString = window.location.search;
+      const urlParams = new URLSearchParams(queryString);
+      const ns = urlParams.get('ns') || 'default'
+
+      fetch(`/nodes/${ns}`)
         .then(res => res.json())
         .then(data => data.items)
         .then(pods => {
@@ -88,6 +90,8 @@
               console.log(e)
             }
 
+
+            // create containers nodes and edges
             spec.containers.forEach((container, i) => {
               const id = `${name}_${container.name}_${i}`
               nodes.add({

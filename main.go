@@ -15,6 +15,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+
+	"github.com/julienschmidt/httprouter"
 )
 
 type Namespace struct {
@@ -43,21 +45,34 @@ type ClusterVisHandler struct {
 	client *kubernetes.Clientset
 }
 
+type Context struct {
+	ns string
+}
+
 func main() {
 
 	log.Println("Starting")
 
 	visHandler := &ClusterVisHandler{client: CreateK8sClient()}
-	http.HandleFunc("/", visHandler.RenderCluster)
-	http.HandleFunc("/nodes", visHandler.GetNodes)
-	err := http.ListenAndServe(":8081", nil)
+
+	r := httprouter.New()
+
+	// r.HandleFunc("/", visHandler.RenderCluster)
+	r.GET("/", visHandler.RenderCluster)
+	r.GET("/nodes/:ns", visHandler.GetNodes)
+
+	err := http.ListenAndServe(":8081", r)
 	if err != nil {
 		panic(err.Error())
 	}
 }
 
-func (clusterVisHandler *ClusterVisHandler) GetNodes(w http.ResponseWriter, r *http.Request) {
-	pods, err := clusterVisHandler.client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+func (clusterVisHandler *ClusterVisHandler) GetNodes(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	ns := p.ByName("ns")
+
+	log.Printf("Fetching pods for %s ns\n", ns)
+	pods, err := clusterVisHandler.client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{})
+	log.Printf("Fetched %s pods for %s ns\n", strconv.Itoa(len(pods.Items)), ns)
 	js, err := json.Marshal(pods)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -68,28 +83,30 @@ func (clusterVisHandler *ClusterVisHandler) GetNodes(w http.ResponseWriter, r *h
 	w.Write(js)
 }
 
-func (ClusterVisHandler *ClusterVisHandler) RenderCluster(w http.ResponseWriter, r *http.Request) {
-	cluster := ClusterData{}
+func (ClusterVisHandler *ClusterVisHandler) RenderCluster(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 
-	namespaces, err := ClusterVisHandler.client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		panic(err.Error())
-	}
+	ctx := Context{}
+	// cluster := ClusterData{}
 
-	for _, ns := range namespaces.Items {
-		cluster.Namespaces = append(cluster.Namespaces, Namespace{"ns_" + ns.Name, ns.Name})
-	}
+	// namespaces, err := ClusterVisHandler.client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	// if err != nil {
+	// 	panic(err.Error())
+	// }
 
-	pods, err := ClusterVisHandler.client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+	// for _, ns := range namespaces.Items {
+	// 	cluster.Namespaces = append(cluster.Namespaces, Namespace{"ns_" + ns.Name, ns.Name})
+	// }
 
-	for _, pod := range pods.Items {
-		podDto := Pod{"pod_" + pod.Name, pod.Name, pod.Namespace, []Container{}}
+	// pods, err := ClusterVisHandler.client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 
-		for i, container := range pod.Spec.Containers {
-			podDto.Containers = append(podDto.Containers, Container{"cont_" + container.Image + "_" + strconv.Itoa(i) + "_" + string(pod.ObjectMeta.UID), container.Image})
-		}
-		cluster.Pods = append(cluster.Pods, podDto)
-	}
+	// for _, pod := range pods.Items {
+	// 	podDto := Pod{"pod_" + pod.Name, pod.Name, pod.Namespace, []Container{}}
+
+	// 	for i, container := range pod.Spec.Containers {
+	// 		podDto.Containers = append(podDto.Containers, Container{"cont_" + container.Image + "_" + strconv.Itoa(i) + "_" + string(pod.ObjectMeta.UID), container.Image})
+	// 	}
+	// 	cluster.Pods = append(cluster.Pods, podDto)
+	// }
 
 	fp := path.Join("templates", "index.html")
 	tmpl, err := template.ParseFiles(fp)
@@ -99,7 +116,7 @@ func (ClusterVisHandler *ClusterVisHandler) RenderCluster(w http.ResponseWriter,
 		return
 	}
 
-	if err := tmpl.Execute(w, cluster); err != nil {
+	if err := tmpl.Execute(w, ctx); err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

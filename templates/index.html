@@ -11,8 +11,9 @@
     <style type="text/css">
       #mynetwork {
         width: 800px;
-        height: 600px;
+        height: 800px;
         border: 1px solid lightgray;
+        background-color: #1e1e1e;
       }
     </style>
   </head>
@@ -20,44 +21,90 @@
 
     <div id="mynetwork"></div>
 
+    <button onclick="clear">clear</button>
+
+
     <script type="text/javascript">
-      // create an array with nodes
-      var nodes = new vis.DataSet([
-        {{- range .Namespaces }}
-        { id: {{.Id}}, label: {{.Name}}, color: "red" },
-        {{- end }}
-        {{- range .Pods }}
-        { id: {{.Id}}, label: {{.Name}}, color: "green" },
-        {{- range .Containers }}
-        { id: {{.Id}}, label: {{.Image}} },
-        {{- end }}
-        {{- end }}
-      ]);
 
-      // create an array with edges
-      var edges = new vis.DataSet([
-        {{- range $pod :=  .Pods}}
-        { from: "ns_{{ .Namespace }}", to: {{$pod.Id}} },
-        {{- range .Containers}}
-        { from: {{.Id}}, to: {{$pod.Id}} },
-        {{- end }}
-        {{ end }}
-
-
-      ]);
+      const nodes = new vis.DataSet([]);
+      const edges = new vis.DataSet([]);
 
       // create a network
       var container = document.getElementById("mynetwork");
+
       var data = {
         nodes: nodes,
         edges: edges,
       };
+
       var options = {
-      nodes: {
-      shape: "box"}
+        nodes: {
+          shape: "box",
+          shadow: true,
+        },
+        edges: {
+          width: 2,
+          shadow: true,
+        },
+        {{/* configure: {
+          enabled: true,
+          container: undefined,
+          showButton: true
+        }, */}}
+        {{/* layout: {
+          hierarchical: {
+            enabled: true,
+            levelSeparation: 400,
+            direction: "LR",
+            sortMethod: "directed",
+          }
+        }, */}}
       };
-      var network = new vis.Network(container, data, options);
+      const network = new vis.Network(container, data, options);
+      
+      fetch('/nodes')
+        .then(res => res.json())
+        .then(data => data.items)
+        .then(pods => {
+          pods.forEach(pod => {
+            console.log(pod)
+            const { metadata, spec } = pod
+            const { name, namespace } = metadata
+            
+            //create ns node
+            try{
+              nodes.add({ id: namespace, label: namespace, shape: "circle",  group: namespace})
+            }catch(e){
+              console.log(e)
+            }
+
+            //create pod node
+            nodes.add({ id: name, label: name, group: namespace})
+
+            // add namespace to pod edges
+            try{
+              edges.add({ from: namespace, to: name})
+            }catch(e){
+              console.log(e)
+            }
+
+            spec.containers.forEach((container, i) => {
+              const id = `${name}_${container.name}_${i}`
+              nodes.add({
+                id,
+                label: `${container.name} \n ${container.image}`,
+                group: namespace
+              })
+
+              edges.add({from: name, to: id})
+            })
+            
+          })  
+        })
+      
+      
     </script>
+
   </body>
 </html>
 

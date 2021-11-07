@@ -19,55 +19,45 @@
   </head>
   <body>
 
+    <select onchange="selectns()" id="ns">
+
+    </select>
+
     <div id="mynetwork"></div>
 
 
     <script type="text/javascript">
 
+      const selectns = function(){
+        const ns = document.getElementById('ns').value
+        console.log(ns)
+        fetchNs(ns)
+      }
+
+      const addns = (ns) => {
+        const select = document.getElementById('ns');
+
+        const opt = document.createElement('option');
+        opt.value = ns;
+        opt.innerHTML = ns;
+        select.appendChild(opt);
+      }
+
+      fetch(`/ns`)
+        .then(res => res.json())
+        .then(data => data.forEach(addns))
+
       const nodes = new vis.DataSet([]);
       const edges = new vis.DataSet([]);
 
-      // create a network
-      var container = document.getElementById("mynetwork");
-
-      var data = {
-        nodes: nodes,
-        edges: edges,
-      };
-
-      var options = {
-        nodes: {
-          shape: "box",
-          shadow: true,
-        },
-        edges: {
-          width: 2,
-          shadow: true,
-        },
-        {{/* configure: {
-          enabled: true,
-          container: undefined,
-          showButton: true
-        }, */}}
-        {{/* layout: {
-          hierarchical: {
-            enabled: true,
-            levelSeparation: 250,
-            direction: "LR",
-            sortMethod: "directed",
-          }
-        }, */}}
-      };
-      const network = new vis.Network(container, data, options);
-
-      const queryString = window.location.search;
-      const urlParams = new URLSearchParams(queryString);
-      const ns = urlParams.get('ns') || 'default'
-
-      fetch(`/nodes/${ns}`)
+      const fetchNs = ns => {
+      fetch(`/pods/${ns}`)
         .then(res => res.json())
         .then(data => data.items)
         .then(pods => {
+          nodes.clear()
+          edges.clear()
+
           pods.forEach(pod => {
             console.log(pod)
             const { metadata, spec } = pod
@@ -105,6 +95,47 @@
             
           })  
         })
+      }
+
+      // create a network
+      var container = document.getElementById("mynetwork");
+
+      var data = {
+        nodes: nodes,
+        edges: edges,
+      };
+
+      var options = {
+        nodes: {
+          shape: "box",
+          shadow: true,
+        },
+        edges: {
+          width: 2,
+          shadow: true,
+        },
+        {{/* configure: {
+          enabled: true,
+          container: undefined,
+          showButton: true
+        }, */}}
+        layout: {
+          hierarchical: {
+            enabled: true,
+            levelSeparation: 250,
+            direction: "LR",
+            sortMethod: "directed",
+          }
+        },
+      };
+      const network = new vis.Network(container, data, options);
+
+      const queryString = window.location.search;
+      const urlParams = new URLSearchParams(queryString);
+      const ns = urlParams.get('ns') || 'default'
+
+      fetchNs(ns)
+      
       
       
     </script>

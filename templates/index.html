@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>K8s vis</title>
+    <title>Vis Network | Basic usage</title>
 
     <script
       type="text/javascript"
@@ -23,19 +23,27 @@
     <script type="text/javascript">
       // create an array with nodes
       var nodes = new vis.DataSet([
-        {{ range .Namespaces }}
+        {{- range .Namespaces }}
         { id: {{.Id}}, label: {{.Name}}, color: "red" },
         {{- end }}
-         {{ range .Pods }}
-        { id: {{.Id}}, label: {{.Name}} },
+        {{- range .Pods }}
+        { id: {{.Id}}, label: {{.Name}}, color: "green" },
+        {{- range .Containers }}
+        { id: {{.Id}}, label: {{.Image}} },
+        {{- end }}
         {{- end }}
       ]);
 
       // create an array with edges
       var edges = new vis.DataSet([
-        {{ range .Pods }}
-        { from: "ns_{{ .Namespace }}", to: "pod_{{.Name}}" },
+        {{- range $pod :=  .Pods}}
+        { from: "ns_{{ .Namespace }}", to: {{$pod.Id}} },
+        {{- range .Containers}}
+        { from: {{.Id}}, to: {{$pod.Id}} },
         {{- end }}
+        {{ end }}
+
+
       ]);
 
       // create a network
@@ -52,3 +60,4 @@
     </script>
   </body>
 </html>
+

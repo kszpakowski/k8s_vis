@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"html/template"
 	"log"
 	"net/http"
 	"path"
 	"path/filepath"
+	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -21,9 +23,15 @@ type Namespace struct {
 }
 
 type Pod struct {
-	Id        string
-	Name      string
-	Namespace string
+	Id         string
+	Name       string
+	Namespace  string
+	Containers []Container
+}
+
+type Container struct {
+	Id    string
+	Image string
 }
 
 type ClusterData struct {
@@ -41,10 +49,23 @@ func main() {
 
 	visHandler := &ClusterVisHandler{client: CreateK8sClient()}
 	http.HandleFunc("/", visHandler.RenderCluster)
+	http.HandleFunc("/nodes", visHandler.GetNodes)
 	err := http.ListenAndServe(":8081", nil)
 	if err != nil {
 		panic(err.Error())
 	}
+}
+
+func (clusterVisHandler *ClusterVisHandler) GetNodes(w http.ResponseWriter, r *http.Request) {
+	pods, err := clusterVisHandler.client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+	js, err := json.Marshal(pods)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
 }
 
 func (ClusterVisHandler *ClusterVisHandler) RenderCluster(w http.ResponseWriter, r *http.Request) {
@@ -62,17 +83,24 @@ func (ClusterVisHandler *ClusterVisHandler) RenderCluster(w http.ResponseWriter,
 	pods, err := ClusterVisHandler.client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 
 	for _, pod := range pods.Items {
-		cluster.Pods = append(cluster.Pods, Pod{"pod_" + pod.Name, pod.Name, pod.Namespace})
+		podDto := Pod{"pod_" + pod.Name, pod.Name, pod.Namespace, []Container{}}
+
+		for i, container := range pod.Spec.Containers {
+			podDto.Containers = append(podDto.Containers, Container{"cont_" + container.Image + "_" + strconv.Itoa(i) + "_" + string(pod.ObjectMeta.UID), container.Image})
+		}
+		cluster.Pods = append(cluster.Pods, podDto)
 	}
 
 	fp := path.Join("templates", "index.html")
 	tmpl, err := template.ParseFiles(fp)
 	if err != nil {
+		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if err := tmpl.Execute(w, cluster); err != nil {
+		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

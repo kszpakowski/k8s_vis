@@ -1,12 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Vis Network | Basic usage</title>
+    <title>KubeVis</title>
 
-    <script
-      type="text/javascript"
-      src="https://visjs.github.io/vis-network/standalone/umd/vis-network.min.js"
-    ></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis-network.min.js" integrity="sha512-GE9mKnPrTn2DY5AZuIC9yE6K4FF8T+9lsO7jwHn+RW9rEjnHzF/in0oGwlPzRwjhQ+oJiawmtfvleX+l6h5/cA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis-network.min.css" integrity="sha512-NJXM8vzWgDcBy9SCUTJXYnNO43sZV3pfLWWZMFTuCtEUIOcznk+AMpH6N3XruxavYfMeMmjrzDMEQ6psRh/6Hw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <style type="text/css">
       #mynetwork {
@@ -30,7 +28,6 @@
 
       const selectns = function(){
         const ns = document.getElementById('ns').value
-        console.log(ns)
         fetchNs(ns)
       }
 
@@ -58,28 +55,18 @@
           nodes.clear()
           edges.clear()
 
+          // create ns node
+          nodes.add({ id: ns, label: ns, shape: "circle",  group: ns})
+
           pods.forEach(pod => {
-            console.log(pod)
             const { metadata, spec } = pod
             const { name, namespace } = metadata
-            
-            //create ns node
-            try{
-              nodes.add({ id: namespace, label: namespace, shape: "circle",  group: namespace})
-            }catch(e){
-              console.log(e)
-            }
 
             //create pod node
             nodes.add({ id: name, label: name, group: namespace})
 
             // add namespace to pod edges
-            try{
-              edges.add({ from: namespace, to: name})
-            }catch(e){
-              console.log(e)
-            }
-
+            edges.add({ from: namespace, to: name})
 
             // create containers nodes and edges
             spec.containers.forEach((container, i) => {
@@ -137,4 +124,3 @@
 
   </body>
 </html>
-

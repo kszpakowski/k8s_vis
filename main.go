@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"path/filepath"
 
+	_ "embed"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -14,6 +16,9 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/kszpakowski/go-playground/pkg/controller"
 )
+
+//go:embed html/index.html
+var html []byte
 
 func main() {
 
@@ -39,7 +44,7 @@ func main() {
 	r := httprouter.New()
 
 	r.GET("/", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		http.ServeFile(w, r, "./static/index.html")
+		w.Write(html)
 	})
 	r.GET("/ns", controller.GetNamespaces)
 	r.GET("/pods/:ns", controller.GetPods)

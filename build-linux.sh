@@ -1,1 +1,0 @@
-env GOOS=linux GOARCH=arm64 go build -o out/app /app

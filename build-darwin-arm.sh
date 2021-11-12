@@ -1,1 +1,0 @@
-env GOOS=darwin GOARCH=arm64 go build -o out/go-playground-darwin-arm64 /app

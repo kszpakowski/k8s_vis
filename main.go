@@ -49,7 +49,7 @@ func main() {
 	r.GET("/ns", controller.GetNamespaces)
 	r.GET("/pods/:ns", controller.GetPods)
 
-	err := http.ListenAndServe(":8081", r)
+	err := http.ListenAndServe(":8080", r)
 	if err != nil {
 		panic(err.Error())
 	}

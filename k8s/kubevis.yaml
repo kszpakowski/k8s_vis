@@ -1,0 +1,72 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubevis
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubevis-server-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevis-server-rb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubevis-server-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kubevis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: kubevis
+  name: kubevis
+  namespace: kubevis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubevis
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: kubevis
+    spec:
+      containers:
+      - image: kubevis
+        name: kubevis
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            memory: 50Mi
+            cpu: 20m
+          requests:
+            memory: 25Mi
+            cpu: 10m
+        ports:
+        - name: http
+          containerPort: 8080

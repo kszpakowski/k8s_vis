@@ -56,3 +56,22 @@ func (controller *KubeApiController) GetPods(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(js)
 }
+
+func (controller *KubeApiController) GetEgressPolicies(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	ns := p.ByName("ns")
+
+	log.Printf("Fetching egress policies for %s ns\n", ns)
+	
+	policies, err := controller.Client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{})
+
+
+	log.Printf("Fetched %s egress policies for %s ns\n", strconv.Itoa(len(policies.Items)), ns)
+	js, err := json.Marshal(policies)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
+}
